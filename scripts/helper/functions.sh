@@ -11,7 +11,7 @@ retry() {
     do
         if (( curr_wait >= max_wait ))
         then
-            echo "ERROR: Failed after $curr_wait seconds. Please troubleshoot and run again."
+            echo "ERROR: Failed after $curr_wait seconds. Please troubleshoot and run again. For troubleshooting instructions see https://docs.confluent.io/current/tutorials/cp-demo/docs/index.html#troubleshooting"
             return 1
         else
             printf "."
@@ -35,14 +35,14 @@ verify_installed()
 preflight_checks()
 {
   # Verify appropriate tools are installed on host
-  for cmd in jq docker-compose keytool docker openssl python; do
+  for cmd in jq docker-compose keytool docker openssl; do
     verify_installed $cmd || exit 1
   done
 
   # Verify Docker memory is increased to at least 8GB
   DOCKER_MEMORY=$(docker system info | grep Memory | grep -o "[0-9\.]\+")
   if (( $(echo "$DOCKER_MEMORY 7.0" | awk '{print ($1 < $2)}') )); then
-    echo -e "\nWARNING: Did you remember to increase the memory available to Docker to at least 8GB (default is 2GB)? Demo may otherwise not work properly.\n"
+    echo -e "\nWARNING: Did you remember to increase the memory available to Docker to at least 8GB (default is 2GB)? Otherwise, the example may not work properly.\n"
     sleep 3
   fi
 
@@ -52,20 +52,11 @@ preflight_checks()
 
 get_kafka_cluster_id_from_container()
 {
-  KAFKA_CLUSTER_ID=$(zookeeper-shell zookeeper:2181 get /cluster/id 2> /dev/null | grep \"version\" | jq -r .id)
-  if [ -z "$KAFKA_CLUSTER_ID" ]; then
-    echo "Failed to retrieve Kafka cluster id from ZooKeeper"
-    exit 1
-  fi
-  echo $KAFKA_CLUSTER_ID
-  return 0
-}
+  KAFKA_CLUSTER_ID=$(curl -s https://kafka1:8091/v1/metadata/id --cert /etc/kafka/secrets/mds.certificate.pem --key /etc/kafka/secrets/mds.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt | jq -r ".id")
 
-host_check_kafka_cluster_registered()
-{
-  KAFKA_CLUSTER_ID=$(docker-compose exec zookeeper zookeeper-shell zookeeper:2181 get /cluster/id 2> /dev/null | grep \"version\" | jq -r .id)
   if [ -z "$KAFKA_CLUSTER_ID" ]; then
-    return 1
+    echo "Failed to retrieve Kafka cluster id"
+    exit 1
   fi
   echo $KAFKA_CLUSTER_ID
   return 0
@@ -87,6 +78,15 @@ host_check_mds_up()
     return 1
   fi
   return 0
+}
+
+host_check_ksqlDBserver_up()
+{
+  KSQLDB_CLUSTER_ID=$(curl -s -u ksqlDBUser:ksqlDBUser http://localhost:8088/info | jq -r ".KsqlServerInfo.ksqlServiceId")
+  if [ "$KSQLDB_CLUSTER_ID" == "ksql-cluster" ]; then
+    return 0
+  fi
+  return 1
 }
 
 host_check_connect_up()
@@ -122,7 +122,7 @@ mds_login()
   OUTPUT=$(
   expect <<END
     log_user 1
-    spawn confluent login --url $MDS_URL
+    spawn confluent login --ca-cert-path /etc/kafka/secrets/snakeoil-ca-1.crt --url $MDS_URL
     expect "Username: "
     send "${SUPER_USER}\r";
     expect "Password: "

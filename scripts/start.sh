@@ -1,13 +1,21 @@
 #!/bin/bash
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
-. ${DIR}/helper/functions.sh
-. ${DIR}/../env_files/config.env
+source ${DIR}/helper/functions.sh
+source ${DIR}/../env_files/config.env
+
+# REPOSITORY - repository (probably) for Docker images
+# The '/' which separates the REPOSITORY from the image name is not required here
+export REPOSITORY=${REPOSITORY:-confluentinc}
+
+# If CONNECTOR_VERSION ~ `SNAPSHOT` then cp-demo uses Dockerfile-local
+# and expects user to build and provide a local file confluentinc-kafka-connect-replicator-${CONNECTOR_VERSION}.zip
+export CONNECTOR_VERSION=${CONNECTOR_VERSION:-$CONFLUENT}
 
 # Do preflight checks
 preflight_checks || exit
 
-# Stop existing demo Docker containers
+# Stop existing Docker containers
 ${DIR}/stop.sh
 
 # Generate keys and certificates used for SSL
@@ -24,20 +32,15 @@ openssl rsa -in ${DIR}/security/keypair/keypair.pem -outform PEM -pubout -out ${
 docker-compose up -d openldap
 sleep 5
 if [[ $(docker-compose ps openldap | grep Exit) =~ "Exit" ]] ; then
-  echo "ERROR: openldap container could not start. Troubleshoot and try again."
+  echo "ERROR: openldap container could not start. Troubleshoot and try again. For troubleshooting instructions see https://docs.confluent.io/current/tutorials/cp-demo/docs/index.html#troubleshooting"
   exit 1
 fi
 
 # Bring up base cluster and Confluent CLI
 docker-compose up -d zookeeper kafka1 kafka2 tools
 
-# Verify Kafka brokers have started
-MAX_WAIT=30
-echo "Waiting up to $MAX_WAIT seconds for Kafka brokers to be registered in ZooKeeper"
-retry $MAX_WAIT host_check_kafka_cluster_registered || exit 1
-
 # Verify MDS has started
-MAX_WAIT=60
+MAX_WAIT=90
 echo "Waiting up to $MAX_WAIT seconds for MDS to start"
 retry $MAX_WAIT host_check_mds_up || exit 1
 sleep 5
@@ -45,22 +48,40 @@ sleep 5
 echo "Creating role bindings for principals"
 docker-compose exec tools bash -c "/tmp/helper/create-role-bindings.sh" || exit 1
 
+# Workaround for setting min ISR on topic _confluent-metadata-auth
+docker-compose exec kafka1 kafka-configs \
+   --bootstrap-server kafka1:12091 \
+   --entity-type topics \
+   --entity-name _confluent-metadata-auth \
+   --alter \
+   --add-config min.insync.replicas=1
+
+# Create Kafka topic users, using appSA principal
+docker-compose exec kafka1 bash -c 'export KAFKA_LOG4J_OPTS="-Dlog4j.rootLogger=DEBUG,stdout -Dlog4j.logger.kafka=DEBUG,stdout" && kafka-topics \
+   --bootstrap-server kafka1:11091 \
+   --command-config /etc/kafka/secrets/appSA.config \
+   --topic users \
+   --create \
+   --replication-factor 2 \
+   --partitions 2 \
+   --config confluent.value.schema.validation=true'
+
 echo
 echo "Building custom Docker image with Connect version ${CONFLUENT_DOCKER_TAG} and connector version ${CONNECTOR_VERSION}"
 if [[ "${CONNECTOR_VERSION}" =~ "SNAPSHOT" ]]; then
   echo "docker build --build-arg CP_VERSION=${CONFLUENT_DOCKER_TAG} --build-arg CONNECTOR_VERSION=${CONNECTOR_VERSION} -t localbuild/connect:${CONFLUENT_DOCKER_TAG}-${CONNECTOR_VERSION} -f Dockerfile-local ."
   docker build --build-arg CP_VERSION=${CONFLUENT_DOCKER_TAG} --build-arg CONNECTOR_VERSION=${CONNECTOR_VERSION} -t localbuild/connect:${CONFLUENT_DOCKER_TAG}-${CONNECTOR_VERSION} -f Dockerfile-local . || {
-    echo "ERROR: Docker image build failed. Please troubleshoot and try again."
+    echo "ERROR: Docker image build failed. Please troubleshoot and try again. For troubleshooting instructions see https://docs.confluent.io/current/tutorials/cp-demo/docs/index.html#troubleshooting"
     exit 1;
   }
 else
   echo "docker build --build-arg CP_VERSION=${CONFLUENT_DOCKER_TAG} --build-arg CONNECTOR_VERSION=${CONNECTOR_VERSION} -t localbuild/connect:${CONFLUENT_DOCKER_TAG}-${CONNECTOR_VERSION} -f ${DIR}/../Dockerfile-confluenthub ."
   docker build --build-arg CP_VERSION=${CONFLUENT_DOCKER_TAG} --build-arg CONNECTOR_VERSION=${CONNECTOR_VERSION} -t localbuild/connect:${CONFLUENT_DOCKER_TAG}-${CONNECTOR_VERSION} -f ${DIR}/../Dockerfile-confluenthub . || {
-    echo "ERROR: Docker image build failed. Please troubleshoot and try again."
+    echo "ERROR: Docker image build failed. Please troubleshoot and try again. For troubleshooting instructions see https://docs.confluent.io/current/tutorials/cp-demo/docs/index.html#troubleshooting"
     exit 1;
   }
 fi
-docker-compose up -d kafka-client schemaregistry connect control-center
+docker-compose up -d schemaregistry connect control-center
 
 # Verify Confluent Control Center has started
 MAX_WAIT=300
@@ -94,6 +115,30 @@ docker-compose exec connect timeout 3 nc -zv irc.wikimedia.org 6667 || {
   exit 1
 }
 
+# Create Kafka topics with prefix wikipedia, using connectorSA principal
+docker-compose exec kafka1 bash -c 'export KAFKA_LOG4J_OPTS="-Dlog4j.rootLogger=DEBUG,stdout -Dlog4j.logger.kafka=DEBUG,stdout" && kafka-topics \
+   --bootstrap-server kafka1:11091 \
+   --command-config /etc/kafka/secrets/connectorSA_without_interceptors_ssl.config \
+   --topic wikipedia.parsed \
+   --create \
+   --replication-factor 2 \
+   --partitions 2 \
+   --config confluent.value.schema.validation=true'
+docker-compose exec kafka1 bash -c 'export KAFKA_LOG4J_OPTS="-Dlog4j.rootLogger=DEBUG,stdout -Dlog4j.logger.kafka=DEBUG,stdout" && kafka-topics \
+   --bootstrap-server kafka1:11091 \
+   --command-config /etc/kafka/secrets/connectorSA_without_interceptors_ssl.config \
+   --topic wikipedia.parsed.count-by-channel \
+   --create \
+   --replication-factor 2 \
+   --partitions 2'
+docker-compose exec kafka1 bash -c 'export KAFKA_LOG4J_OPTS="-Dlog4j.rootLogger=DEBUG,stdout -Dlog4j.logger.kafka=DEBUG,stdout" && kafka-topics \
+   --bootstrap-server kafka1:11091 \
+   --command-config /etc/kafka/secrets/connectorSA_without_interceptors_ssl.config \
+   --topic wikipedia.failed \
+   --create \
+   --replication-factor 2 \
+   --partitions 2'
+
 echo -e "\nStart streaming from the IRC source connector:"
 ${DIR}/connectors/submit_wikipedia_irc_config.sh
 
@@ -117,8 +162,24 @@ ${DIR}/dashboard/configure_kibana_dashboard.sh
 echo
 echo
 
+# Create Kafka topics with prefix WIKIPEDIA or EN_WIKIPEDIA, using ksqlDBUser principal
+for t in WIKIPEDIABOT WIKIPEDIANOBOT EN_WIKIPEDIA_GT_1 EN_WIKIPEDIA_GT_1_COUNTS
+do
+  docker-compose exec kafka1 bash -c 'export KAFKA_LOG4J_OPTS="-Dlog4j.rootLogger=DEBUG,stdout -Dlog4j.logger.kafka=DEBUG,stdout" && kafka-topics \
+     --bootstrap-server kafka1:11091 \
+     --command-config /etc/kafka/secrets/ksqlDBUser_without_interceptors_ssl.config \
+     --topic '"$t"' \
+     --create \
+     --replication-factor 2 \
+     --partitions 2'
+done
+
+# Verify ksqlDB server has started
+MAX_WAIT=30
+echo "Waiting up to $MAX_WAIT seconds for ksqlDB server to start"
+retry $MAX_WAIT host_check_ksqlDBserver_up || exit 1
 echo -e "\n\nRun ksqlDB queries:"
-${DIR}/ksql/run_ksql.sh
+${DIR}/ksqlDB/run_ksqlDB.sh
 
 echo -e "\nStart consumers for additional topics: WIKIPEDIANOBOT, EN_WIKIPEDIA_GT_1_COUNTS"
 ${DIR}/consumers/listen_WIKIPEDIANOBOT.sh
@@ -144,12 +205,14 @@ ${DIR}/helper/control-center-modifications.sh
 echo
 echo -e "\nAvailable LDAP users:"
 #docker-compose exec openldap ldapsearch -x -h localhost -b dc=confluentdemo,dc=io -D "cn=admin,dc=confluentdemo,dc=io" -w admin | grep uid:
-curl -u mds:mds -X POST "http://localhost:8091/security/1.0/principals/User%3Amds/roles/UserAdmin" \
+curl -u mds:mds -X POST "https://localhost:8091/security/1.0/principals/User%3Amds/roles/UserAdmin" \
   -H "accept: application/json" -H "Content-Type: application/json" \
-  -d "{\"clusters\":{\"kafka-cluster\":\"does_not_matter\"}}"
-curl -u mds:mds -X POST "http://localhost:8091/security/1.0/rbac/principals" --silent \
+  -d "{\"clusters\":{\"kafka-cluster\":\"does_not_matter\"}}" \
+  --cacert scripts/security/snakeoil-ca-1.crt --tlsv1.2
+curl -u mds:mds -X POST "https://localhost:8091/security/1.0/rbac/principals" --silent \
   -H "accept: application/json"  -H "Content-Type: application/json" \
-  -d "{\"clusters\":{\"kafka-cluster\":\"does_not_matter\"}}" | jq '.[]'
+  -d "{\"clusters\":{\"kafka-cluster\":\"does_not_matter\"}}" \
+  --cacert scripts/security/snakeoil-ca-1.crt --tlsv1.2 | jq '.[]'
 
 echo -e "\n\n\n*****************************************************************************************************************"
 echo -e "DONE! Connect to Confluent Control Center at http://localhost:9021 (login as superUser/superUser for full access)"

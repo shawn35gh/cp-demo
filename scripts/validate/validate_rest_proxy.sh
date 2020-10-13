@@ -1,35 +1,35 @@
 #!/bin/bash
 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+
 ################################## GET KAFKA CLUSTER ID ########################
-KAFKA_CLUSTER_ID=$(docker-compose exec zookeeper zookeeper-shell zookeeper:2181 get /cluster/id 2> /dev/null | grep \"version\" | jq -r .id)
+KAFKA_CLUSTER_ID=$(curl -s https://localhost:8091/v1/metadata/id --tlsv1.2 --cacert ${DIR}/../security/snakeoil-ca-1.crt | jq -r ".id")
 if [ -z "$KAFKA_CLUSTER_ID" ]; then
-    echo "Failed to retrieve Kafka cluster id from ZooKeeper"
+    echo "Failed to retrieve Kafka cluster id"
     exit 1
 fi
 
 ################################## SETUP VARIABLES #############################
-MDS_URL=http://kafka1:8091
 CONNECT=connect-cluster
 SR=schema-registry
-KSQL=ksql-cluster
+KSQLDB=ksql-cluster
 C3=c3-cluster
 
-SUPER_USER=superUser
-SUPER_USER_PASSWORD=superUser
-SUPER_USER_PRINCIPAL="User:$SUPER_USER"
 CONNECT_ADMIN="User:connectAdmin"
 CONNECTOR_SUBMITTER="User:connectorSubmitter"
 CONNECTOR_PRINCIPAL="User:connectorSA"
 SR_PRINCIPAL="User:schemaregistryUser"
-KSQL_ADMIN="User:ksqlDBAdmin"
-KSQL_USER="User:ksqlDBUser"
+KSQLDB_ADMIN="User:ksqlDBAdmin"
+KSQLDB_USER="User:ksqlDBUser"
 C3_ADMIN="User:controlcenterAdmin"
 CLIENT_NAME="appSA"
 CLIENT_PRINCIPAL="User:$CLIENT_NAME"
 
-docker-compose exec tools bash -c ". /tmp/helper/functions.sh ; mds_login $MDS_URL ${SUPER_USER} ${SUPER_USER_PASSWORD}"
+${DIR}/../helper/refresh_mds_login.sh
 
 ################################## RUN ########################################
+
+echo -e "\nValidating the standalone REST Proxy...\n"
 
 topic="users"
 subject="$topic-value"
@@ -78,10 +78,29 @@ docker-compose exec tools bash -c "confluent iam rolebinding create \
 docker-compose exec restproxy curl -X GET -H "Accept: application/vnd.kafka.avro.v2+json" --cert /etc/kafka/secrets/restproxy.certificate.pem --key /etc/kafka/secrets/restproxy.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt -u $CLIENT_NAME:$CLIENT_NAME https://restproxy:8086/consumers/$group/instances/my_consumer_instance/records
 output=$(docker-compose exec restproxy curl -X GET -H "Accept: application/vnd.kafka.avro.v2+json" --cert /etc/kafka/secrets/restproxy.certificate.pem --key /etc/kafka/secrets/restproxy.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt -u $CLIENT_NAME:$CLIENT_NAME https://restproxy:8086/consumers/$group/instances/my_consumer_instance/records)
 if [[ $output =~ "Bunny Smith" ]]; then
-  printf "\nPASS: Output $output matches expected output"
+  printf "\nPASS: Output matches expected output:\n$output"
 else
-  printf "\nFAIL: Output $output does not match expected output"
+  printf "\nFAIL: Output does not match expected output:\n$output"
 fi
 
 docker-compose exec restproxy curl -X DELETE -H "Content-Type: application/vnd.kafka.v2+json" --cert /etc/kafka/secrets/restproxy.certificate.pem --key /etc/kafka/secrets/restproxy.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt -u $CLIENT_NAME:$CLIENT_NAME https://restproxy:8086/consumers/$group/instances/my_consumer_instance
 
+
+#################
+
+echo -e "\n\n\nValidating the embedded REST Proxy...\n"
+
+docker-compose exec tools bash -c "confluent iam rolebinding create \
+    --principal User:appSA \
+    --role ResourceOwner \
+    --resource Topic:dev_users \
+    --kafka-cluster-id $KAFKA_CLUSTER_ID"
+
+docker-compose exec restproxy curl -X POST -H "Content-Type: application/json" -H "accept: application/json" -u appSA:appSA "https://kafka1:8091/kafka/v3/clusters/${KAFKA_CLUSTER_ID}/topics" -d "{\"topic_name\":\"dev_users\",\"partitions_count\":64,\"replication_factor\":2,\"configs\":[{\"name\":\"cleanup.policy\",\"value\":\"compact\"},{\"name\":\"compression.type\",\"value\":\"gzip\"}]}" --cert /etc/kafka/secrets/mds.certificate.pem --key /etc/kafka/secrets/mds.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt | jq
+
+output=$(docker-compose exec restproxy curl -X GET -H "Content-Type: application/json" -H "accept: application/json" -u appSA:appSA https://kafka1:8091/kafka/v3/clusters/${KAFKA_CLUSTER_ID}/topics --cert /etc/kafka/secrets/mds.certificate.pem --key /etc/kafka/secrets/mds.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt | jq '.data[].topic_name')
+if [[ $output =~ "dev_users" ]]; then
+  printf "\nPASS: Output includes dev_users and matches expected output:\n$output"
+else
+  printf "\nFAIL: Output does not include dev_users and matches expected output:\n$output"
+fi

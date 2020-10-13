@@ -3,31 +3,32 @@
 Confluent Platform Demo (cp-demo)
 =================================
 
-This demo builds a full |cp| deployment with a Kafka event streaming application using `ksqlDB <https://www.confluent.io/product/ksql/>`__ and `Kafka Streams <https://docs.confluent.io/current/streams/index.html>`__ for stream processing.
-Follow the accompanying guided tutorial that steps through the demo so that you can learn how it all works together.
-All the components in the Confluent platform have security enabled end-to-end.
+This example builds a full |cp| deployment with an |ak-tm| event streaming application using `ksqlDB <https://www.confluent.io/product/ksql/>`__ and `Kafka Streams <https://docs.confluent.io/current/streams/index.html>`__ for stream processing, and all the components have security enabled end-to-end.
+Follow the accompanying guided tutorial that steps through the example so that you can learn how it all works together.
 
 
 ========
 Overview
 ========
 
-The use case is a Kafka event streaming application for real-time edits to real Wikipedia pages.
-Wikimedia Foundation has IRC channels that publish edits happening to real wiki pages (e.g. ``#en.wikipedia``, ``#en.wiktionary``) in real time.
-Using `Kafka Connect <http://docs.confluent.io/current/connect/index.html>`__, a Kafka source connector `kafka-connect-irc <https://github.com/cjmatta/kafka-connect-irc>`__ streams raw messages from these IRC channels, and a custom Kafka Connect transform `kafka-connect-transform-wikiedit <https://github.com/cjmatta/kafka-connect-transform-wikiedit>`__ transforms these messages and then the messages are written to a Kafka cluster.
-This demo uses `ksqlDB <https://www.confluent.io/product/ksql/>`__ and a `Kafka Streams <http://docs.confluent.io/current/streams/index.html>`__ application for data processing.
-Then a Kafka sink connector `kafka-connect-elasticsearch <http://docs.confluent.io/current/connect/connect-elasticsearch/docs/elasticsearch_connector.html>`__ streams the data out of Kafka, and the data is materialized into `Elasticsearch <https://www.elastic.co/products/elasticsearch>`__ for analysis by `Kibana <https://www.elastic.co/products/kibana>`__.
-|crep-full| is also copying messages from a topic to another topic in the same cluster.
-All data is using |sr-long| and Avro.
-`Confluent Control Center <https://www.confluent.io/product/control-center/>`__ is managing and monitoring the deployment.
+Use Case
+--------
 
+The use case is an |ak-tm| event streaming application that processes real-time edits to real Wikipedia pages.
 
 .. figure:: images/cp-demo-overview.jpg
     :alt: image
 
+Wikimedia Foundation has IRC channels that publish edits happening to real wiki pages (e.g. ``#en.wikipedia``, ``#en.wiktionary``) in real time.
+Using :ref:`Kafka Connect <kafka_connect>`, a Kafka source connector `kafka-connect-irc <https://github.com/cjmatta/kafka-connect-irc>`__ streams raw messages from these IRC channels, and a custom Kafka Connect transform `kafka-connect-transform-wikiedit <https://github.com/cjmatta/kafka-connect-transform-wikiedit>`__ transforms these messages and then the messages are written to a Kafka cluster.
+This example uses `ksqlDB <https://www.confluent.io/product/ksql/>`__ and a :ref:`Kafka Streams <kafka_streams>` application for data processing.
+Then a Kafka sink connector `kafka-connect-elasticsearch <http://docs.confluent.io/kafka-connect-elasticsearch/index.html>`__ streams the data out of Kafka, and the data is materialized into `Elasticsearch <https://www.elastic.co/products/elasticsearch>`__ for analysis by `Kibana <https://www.elastic.co/products/kibana>`__.
+|crep-full| is also copying messages from a topic to another topic in the same cluster.
+All data is using |sr-long| and Avro.
+`Confluent Control Center <https://www.confluent.io/product/control-center/>`__ is managing and monitoring the deployment.
 
-.. note:: This is a Docker environment and has all services running on one host. Do not use this demo in production. It is meant exclusively to easily demo the |CP|. In production, |c3| should be deployed with a valid license and with its own dedicated metrics cluster, separate from the cluster with production traffic. Using a dedicated metrics cluster is more resilient because it continues to provide system health monitoring even if the production traffic cluster experiences issues.
-
+Data Pattern
+------------
 
 Data pattern is as follows:
 
@@ -46,23 +47,38 @@ Data pattern is as follows:
 +-------------------------------------+--------------------------------+---------------------------------------+
 
 
-========
-Run Demo
-========
+===========
+Run Example
+===========
 
-Demo validated with:
+Prerequisites
+-------------
+
+This example has been validated with:
 
 -  Docker version 17.06.1-ce
 -  Docker Compose version 1.14.0 with Docker Compose file format 2.3
 -  Java version 1.8.0_92
 -  MacOS 10.15.3 (note for `Ubuntu environments <https://github.com/confluentinc/cp-demo/issues/53>`__)
 -  OpenSSL 1.1.1d
--  Python 3.7.6
 -  git
 -  jq
 
-.. note:: If you prefer other non-Docker demos, please go to `confluentinc/examples GitHub repository <https://github.com/confluentinc/examples>`__.
+Docker
+------
 
+This is a Docker environment and has all services running on one host.
+It is meant exclusively to easily demo |CP|, but in production, do not deploy all |cp| services on a single host.
+
+Also, in production, |c3| should be deployed with a valid license and with its own dedicated metrics cluster, separate from the cluster with production data.
+Using a dedicated metrics cluster is more resilient because it continues to provide system health monitoring even if the production traffic cluster experiences issues.
+
+If you prefer non-Docker examples, please go to `confluentinc/examples GitHub repository <https://github.com/confluentinc/examples>`__.
+
+Start Example
+-------------
+
+#. In Docker's advanced `settings <https://docs.docker.com/docker-for-mac/#advanced>`__, increase the memory dedicated to Docker to at least 8GB (default is 2GB).
 
 #. Clone the `confluentinc/cp-demo GitHub repository <https://github.com/confluentinc/cp-demo>`__:
 
@@ -70,17 +86,26 @@ Demo validated with:
 
        git clone https://github.com/confluentinc/cp-demo
 
-#. In Docker's advanced `settings <https://docs.docker.com/docker-for-mac/#advanced>`__, increase the memory dedicated to Docker to at least 8GB (default is 2GB).
+#. Navigate to the ``cp-demo`` directory and switch to the |cp| release branch:
 
-#. From the ``cp-demo`` directory, start the entire demo by running a single command that generates the keys and certificates, brings up the Docker containers, and configures and validates the environment. This will take approximately 7 minutes to complete.
+   .. codewithvars:: bash
+
+      cd cp-demo
+      git checkout |release_post_branch|
+
+#. From the ``cp-demo`` directory, start the entire example by running a single command that generates the keys and certificates, brings up the Docker containers, and configures and validates the environment. This takes approximately 7 minutes to complete.
 
    .. sourcecode:: bash
 
         ./scripts/start.sh
 
-#. Use Google Chrome to view the |c3| GUI at http://localhost:9021. For this tutorial, log in as ``superUser`` and password ``superUser``, which has super user access to the cluster. You may also log in as :devx-cp-demo:`other users|scripts//security/ldap_users` to learn how each user's view changes depending on their permissions.
+#. Using a web browser, view the |c3| GUI at http://localhost:9021. For this tutorial, log in as ``superUser`` and password ``superUser``, which has super user access to the cluster. You may also log in as :devx-cp-demo:`other users|scripts//security/ldap_users` to learn how each user's view changes depending on their permissions.
 
-5. To see the end of the entire pipeline, view the Kibana dashboard at http://localhost:5601/app/kibana#/dashboard/Wikipedia
+#. To see the end of the entire pipeline, view the Kibana dashboard at http://localhost:5601/app/kibana#/dashboard/Wikipedia
+
+#. You can view the full platform configuration in the :devx-cp-demo:`docker-compose.yml|docker-compose.yml` file and the |kstreams| application configuration in the following :devx-cp-demo:`client configuration|env_files/streams-demo.env` file.
+
+#. After you run through the guided tutorial below, apply the concepts you learn here to build your own event streaming pipeline in |ccloud|, a fully managed, cloud-native event streaming platform powered by |ak|. When you sign up for `Confluent Cloud <https://confluent.cloud>`__, use the promo code ``C50INTEG`` to receive an additional $50 free usage (`details <https://www.confluent.io/confluent-cloud-promo-disclaimer>`__).
 
 
 ===============
@@ -145,39 +170,39 @@ Topics
    .. figure:: images/topic_settings.png
       :alt: image
 
-#. Return to "All Topics", click on ``wikipedia.parsed.count-by-channel`` to view the output topic from the Kafka Streams application.
+#. Return to "All Topics", click on ``wikipedia.parsed.count-by-channel`` to view the output topic from the |kstreams| application.
 
    .. figure:: images/count-topic-view.png
       :alt: image
 
-#. Return to the ``All topics`` view and click the **+ Add a topic** button on the top right to create a new topic in your Kafka cluster. You can also view and edit settings of Kafka topics in the cluster. Read more on |c3| `topic management <https://docs.confluent.io/current/control-center/docs/topics.html>`__.
+#. Return to the ``All topics`` view and click the **+ Add a topic** button on the top right to create a new topic in your Kafka cluster. You can also view and edit settings of Kafka topics in the cluster. Read more on |c3| :ref:`topic management <controlcenter_userguide_topics>`.
 
    .. figure:: images/create_topic.png
          :alt: image
 
-Connect
--------
+|kconnect-long|
+---------------
 
-This demo has three connectors:
+This example runs three connectors:
 
 - IRC source connector
 - Elasticsearch sink connector
-- Confluent Replicator
+- |crep-full|
 
 They are running on a |kconnect| worker that is configured with |cp| security features.
-The connect worker's embedded producer is configured to be idempotent, exactly-once in order semantics per partition (in the event of an error that causes a producer retry, the same message—which is still sent by the producer multiple times—will only be written to the Kafka log on the broker once).
+The |kconnect| worker's embedded producer is configured to be idempotent, exactly-once in order semantics per partition (in the event of an error that causes a producer retry, the same message—which is still sent by the producer multiple times—will only be written to the Kafka log on the broker once).
 
-#. |c3| uses the Kafka Connect API to manage multiple `connect clusters <https://docs.confluent.io/current/control-center/docs/connect.html>`__.  Click on "Connect".
+#. |c3| uses the |kconnect-long| API to manage multiple :ref:`connect clusters <kafka_connect>`.  Click on "Connect".
 
 #. Select ``connect1``, the name of the cluster of |kconnect| workers.
 
    .. figure:: images/connect_default.png
 
-#. Verify the connectors running in this demo:
+#. Verify the connectors running in this example:
 
-   - source connector ``wikipedia-irc`` view the demo's IRC source connector :devx-cp-demo:`configuration file|scripts/connectors/submit_wikipedia_irc_config.sh`.
-   - source connector ``replicate-topic``: view the demo's |crep| connector :devx-cp-demo:`configuration file|scripts/connectors/submit_replicator_config.sh`.
-   - sink connector ``elasticsearch-ksql`` consuming from the Kafka topic ``WIKIPEDIABOT``: view the demo's Elasticsearch sink connector :devx-cp-demo:`configuration file|scripts/connectors/submit_elastic_sink_config.sh`.
+   - source connector ``wikipedia-irc`` view the example's IRC source connector :devx-cp-demo:`configuration file|scripts/connectors/submit_wikipedia_irc_config.sh`.
+   - source connector ``replicate-topic``: view the example's |crep| connector :devx-cp-demo:`configuration file|scripts/connectors/submit_replicator_config.sh`.
+   - sink connector ``elasticsearch-ksqldb`` consuming from the Kafka topic ``WIKIPEDIABOT``: view the example's Elasticsearch sink connector :devx-cp-demo:`configuration file|scripts/connectors/submit_elastic_sink_config.sh`.
 
    .. figure:: images/connector_list.png
 
@@ -191,7 +216,7 @@ The connect worker's embedded producer is configured to be idempotent, exactly-o
 ksqlDB
 ------
 
-In this demo, ksqlDB is authenticated and authorized to connect to the secured Kafka cluster, and it is already running queries as defined in the :devx-cp-demo:`ksqlDB command file|scripts/ksql/statements.sql` .
+In this example, ksqlDB is authenticated and authorized to connect to the secured Kafka cluster, and it is already running queries as defined in the :devx-cp-demo:`ksqlDB command file|scripts/ksqlDB/statements.sql` .
 Its embedded producer is configured to be idempotent, exactly-once in order semantics per partition (in the event of an error that causes a producer retry, the same message—which is still sent by the producer multiple times—will only be written to the Kafka log on the broker once).
 
 #. In the navigation bar, click **ksqlDB**.
@@ -201,7 +226,7 @@ Its embedded producer is configured to be idempotent, exactly-once in order sema
    .. figure:: images/ksql_link.png
       :alt: image
 
-#. View the ksqlDB Flow to see the streams and tables created in the demo, and how they relate to one another.
+#. View the ksqlDB Flow to see the streams and tables created in the example, and how they relate to one another.
 
    .. figure:: images/ksqldb_flow.png
       :alt: image
@@ -242,7 +267,7 @@ Its embedded producer is configured to be idempotent, exactly-once in order sema
    .. figure:: images/ksql_properties.png
       :alt: image
 
-#. This demo creates two streams ``EN_WIKIPEDIA_GT_1`` and ``EN_WIKIPEDIA_GT_1_COUNTS``, and the reason is to demonstrate how ksqlDB windows work. ``EN_WIKIPEDIA_GT_1`` counts occurences with a tumbling window, and for a given key it writes a `null` into the table on the first seen message.  The underlying Kafka topic for ``EN_WIKIPEDIA_GT_1`` does not filter out those nulls, but since we want to send downstream just the counts greater than one, there is a separate Kafka topic for ````EN_WIKIPEDIA_GT_1_COUNTS`` which does filter out those nulls (e.g., the query has a clause ``where ROWTIME is not null``).  From the bash prompt, view those underlying Kafka topics.
+#. This example creates two streams ``EN_WIKIPEDIA_GT_1`` and ``EN_WIKIPEDIA_GT_1_COUNTS``, and the reason is to demonstrate how ksqlDB windows work. ``EN_WIKIPEDIA_GT_1`` counts occurences with a tumbling window, and for a given key it writes a `null` into the table on the first seen message.  The underlying Kafka topic for ``EN_WIKIPEDIA_GT_1`` does not filter out those nulls, but to send just the counts greater than one downstream, there is a separate Kafka topic for ````EN_WIKIPEDIA_GT_1_COUNTS`` which does filter out those nulls (e.g., the query has a clause ``where ROWTIME is not null``).  From the bash prompt, view those underlying Kafka topics.
 
 - View messages in the topic ``EN_WIKIPEDIA_GT_1`` (jump to offset 0/partition 0), and notice the nulls:
 
@@ -254,7 +279,7 @@ Its embedded producer is configured to be idempotent, exactly-once in order sema
   .. figure:: images/messages_in_EN_WIKIPEDIA_GT_1_COUNTS.png
      :alt: image
 
-11. The `ksqlDB processing log <https://docs.confluent.io/current/ksql/docs/developer-guide/processing-log.html>`__ captures per-record errors during processing to help developers debug their ksqlDB queries. In this demo, the processing log uses mutual TLS (mTLS) authentication, as configured in the custom :devx-cp-demo:`log4j properties file|scripts/helper/log4j-secure.properties`, to write entries into a Kafka topic. To see it in action, in the ksqlDB editor run the following "bad" query for 20 seconds:
+11. The `ksqlDB processing log <https://docs.confluent.io/current/ksql/docs/developer-guide/processing-log.html>`__ captures per-record errors during processing to help developers debug their ksqlDB queries. In this example, the processing log uses mutual TLS (mTLS) authentication, as configured in the custom :devx-cp-demo:`log4j properties file|scripts/helper/log4j-secure.properties`, to write entries into a Kafka topic. To see it in action, in the ksqlDB editor run the following "bad" query for 20 seconds:
 
 .. sourcecode:: bash
 
@@ -273,7 +298,7 @@ Consumers
 
 #. |c3| enables you to monitor consumer lag and throughput performance. Consumer lag is the topic's high water mark (latest offset for the topic that has been written) minus the current consumer offset (latest offset read for that topic by that consumer group). Keep in mind the topic's write rate and consumer group's read rate when you consider the significance the consumer lag's size. Click on "Consumers".
 
-#. Consumer lag is available on a `per-consumer basis <https://docs.confluent.io/current/control-center/consumers.html#view-consumer-lag-details-for-a-consumer-group>`__, including embedded consumers in sink connectors (e.g., ``connect-replicator`` and ``connect-elasticsearch-ksql``), ksqlDB queries (e.g., consumer groups whose names start with ``_confluent-ksql-default_query_``), console consumers (e.g., ``WIKIPEDIANOBOT-consumer``), etc.  Consumer lag is also available on a `per-topic basis <https://docs.confluent.io/current/control-center/topics/view.html#view-consumer-lag-for-a-topic>`__.
+#. Consumer lag is available on a `per-consumer basis <https://docs.confluent.io/current/control-center/consumers.html#view-consumer-lag-details-for-a-consumer-group>`__, including the embedded Connect consumers for sink connectors (e.g., ``connect-elasticsearch-ksqldb``), ksqlDB queries (e.g., consumer groups whose names start with ``_confluent-ksql-default_query_``), console consumers (e.g., ``WIKIPEDIANOBOT-consumer``), etc.  Consumer lag is also available on a `per-topic basis <https://docs.confluent.io/current/control-center/topics/view.html#view-consumer-lag-for-a-topic>`__.
 
    .. figure:: images/consumer_group_list.png
       :alt: image
@@ -283,12 +308,12 @@ Consumers
    .. figure:: images/ksql_query_CSAS_WIKIPEDIABOT_consumer_lag.png
       :alt: image
 
-#. View consumer lag for the Kafka Streams application under the consumer group id ``wikipedia-activity-monitor``. This application is run by the `cnfldemos/cp-demo-kstreams <https://hub.docker.com/r/cnfldemos/cp-demo-kstreams>`__ Docker container (application `source code <https://github.com/confluentinc/demos-common/blob/master/src/main/java/io/confluent/demos/common/wiki/WikipediaActivityMonitor.java>`__).
+#. View consumer lag for the |kstreams| application under the consumer group id ``wikipedia-activity-monitor``. This application is run by the `cnfldemos/cp-demo-kstreams <https://hub.docker.com/r/cnfldemos/cp-demo-kstreams>`__ Docker container (application :devx-cp-demo:`source code|kstreams-app/src/main/java/io/confluent/demos/common/wiki/WikipediaActivityMonitor.java`). The |kstreams| application is configured to connect to the |ak| cluster with the following :devx-cp-demo:`client configuration|env_files/streams-demo.env` file.
 
    .. figure:: images/activity-monitor-consumer.png
       :alt: image
 
-#. Consumption metrics are available on a `per-consumer basis <https://docs.confluent.io/current/control-center/consumers.html#view-consumption-details-for-a-consumer-group>`__. These consumption charts are only populated if `Confluent Monitoring Interceptors <https://docs.confluent.io/current/control-center/installation/clients.html>`__ are configured, as they are in this demo. You can view ``% messages consumed`` and ``end-to-end latency``.  View consumption metrics for the persistent ksqlDB "Create Stream As Select" query ``CSAS_WIKIPEDIABOT``, which is displayed as ``_confluent-ksql-default_query_CSAS_WIKIPEDIABOT_0`` in the consumer group list.
+#. Consumption metrics are available on a `per-consumer basis <https://docs.confluent.io/current/control-center/consumers.html#view-consumption-details-for-a-consumer-group>`__. These consumption charts are only populated if `Confluent Monitoring Interceptors <https://docs.confluent.io/current/control-center/installation/clients.html>`__ are configured, as they are in this example. You can view ``% messages consumed`` and ``end-to-end latency``.  View consumption metrics for the persistent ksqlDB "Create Stream As Select" query ``CSAS_WIKIPEDIABOT``, which is displayed as ``_confluent-ksql-default_query_CSAS_WIKIPEDIABOT_0`` in the consumer group list.
 
    .. figure:: images/ksql_query_CSAS_WIKIPEDIABOT_consumption.png
       :alt: image
@@ -319,49 +344,49 @@ Consumers
    now share consumption of the partitions in the topic
    ``wikipedia.parsed``.
 
-    .. figure:: images/consumer_start_two.png
+   .. figure:: images/consumer_start_two.png
       :alt: image
 
 #. From the **Brokers -> Consumption** view, click on a point in the Request latency
-   line graph to view a breakdown of latencies through the entire `request lifecycle <https://docs.confluent.io/current/control-center/brokers.html#consumption-metrics-panel>`__.
+   line graph to view a breakdown of latencies through the entire :ref:`request lifecycle <c3_brokers_consumption_metrics>`.
 
-    .. figure:: images/slow_consumer_produce_latency_breakdown.png
-       :alt: image
+   .. figure:: images/slow_consumer_produce_latency_breakdown.png
+      :alt: image
 
 
-Replicator
-----------
+|crep-full|
+-----------
 
-Confluent Replicator copies data from a source Kafka cluster to a
+|crep-full| copies data from a source Kafka cluster to a
 destination Kafka cluster. The source and destination clusters are
-typically different clusters, but in this demo, Replicator is doing
+typically different clusters, but in this example, |crep| is doing
 intra-cluster replication, *i.e.*, the source and destination Kafka
 clusters are the same. As with the rest of the components in the
-solution, Confluent Replicator is also configured with security.
+solution, |crep-full| is also configured with security.
 
-#. View Replicator status and throughput in a dedicated view in |c3|.
+#. View |crep| status and throughput in a dedicated view in |c3|.
 
    .. figure:: images/replicator_c3_view.png
       :alt: image
 
-#. **Consumers**: monitor throughput and latency of Confluent Replicator.
-   Replicator is a Kafka Connect source connector and has a corresponding consumer group ``connect-replicator``.
+#. **Consumers**: monitor throughput and latency of |crep-full|.
+   |crep| is a |kconnect-long| source connector and has a corresponding consumer group ``connect-replicator``.
 
    .. figure:: images/replicator_consumer_group_list.png
       :alt: image
 
-#. View Replicator Consumer Lag.
+#. View |crep| Consumer Lag.
 
    .. figure:: images/replicator_consumer_lag.png
       :alt: image
 
-#. View Replicator Consumption metrics.
+#. View |crep| Consumption metrics.
 
    .. figure:: images/replicator_consumption.png
       :alt: image
 
 #. **Connect**: pause the |crep| connector in **Settings**
-   by pressing the pause icon in the top right and wait for 10 seconds until it takes effect.  This will stop
+   by pressing the pause icon in the top right and wait for 10 seconds until it takes effect.  This stops
    consumption for the related consumer group.
 
    .. figure:: images/pause_connector_replicator.png
@@ -372,7 +397,7 @@ solution, Confluent Replicator is also configured with security.
 
    .. figure:: images/replicator_stopped.png
 
-#. Restart the Replicator connector.
+#. Restart the |crep| connector.
 
 #. Observe that the ``connect-replicator`` consumer group has resumed consumption. Notice several things:
 
@@ -385,31 +410,31 @@ solution, Confluent Replicator is also configured with security.
 Security
 --------
 
-All the |cp| components and clients in this demo are enabled with many `security features <https://docs.confluent.io/current/security.html>`__.
+All the |cp| components and clients in this example are enabled with many :ref:`security features <security>`.
 
--  :ref:`Metadata Service (MDS) <rbac-mds-config>` which is the central authority for authentication and authorization. It is configured with the Confluent Server Authorizer and talks to LDAP to authenticate clients.
--  `SSL <https://docs.confluent.io/current/kafka/authentication_ssl.html>`__ for encryption and mTLS. The demo :devx-cp-demo:`automatically generates|scripts/security/certs-create.sh` SSL certificates and creates keystores, truststores, and secures them with a password. 
+-  :ref:`Metadata Service (MDS) <rbac-mds-config>` which is the central authority for authentication and authorization. It is configured with the |csa| and talks to LDAP to authenticate clients.
+-  :ref:`SSL <kafka_ssl_authentication>` for encryption and mTLS. The example :devx-cp-demo:`automatically generates|scripts/security/certs-create.sh` SSL certificates and creates keystores, truststores, and secures them with a password. 
 -  :ref:`Role-Based Access Control (RBAC) <rbac-overview>` for authorization. If a resource has no associated ACLs, then users are not allowed to access the resource, except super users.
--  |zk| is configured for `SSL <https://docs.confluent.io/current/security/zk-security.html#mtls>`__ AND `SASL/DIGEST-MD5 <https://docs.confluent.io/current/security/zk-security.html#sasl-with-digest-md5>`__ (Note: no |crest| and |sr| TLS support with `trial licenses <https://docs.confluent.io/5.5.0/release-notes/index.html#schema-registry>`__).
--  `HTTPS for Control Center <https://docs.confluent.io/current/control-center/docs/installation/configuration.html#https-settings>`__.
--  `HTTPS for Schema Registry <https://docs.confluent.io/current/schema-registry/docs/security.html>`__.
--  `HTTPS for Connect <https://docs.confluent.io/current/connect/security.html#configuring-the-kconnect-rest-api-for-http-or-https>`__.
+-  |zk| is configured for :ref`SSL <zk-mtls>` AND `SASL/DIGEST-MD5 <zk-auth-sasl>` (Note: no |crest| and |sr| TLS support with `trial licenses <https://docs.confluent.io/5.5.0/release-notes/index.html#schema-registry>`__).
+-  :ref:`HTTPS for Control Center <https_settings>`.
+-  :ref:`HTTPS for Schema Registry <schemaregistry_security>`.
+-  :ref:`HTTPS for Connect <connect_security>`.
 
-You can see each component's security configuration in the demo's :devx-cp-demo:`docker-compose.yml|docker-compose.yml` file.
+You can see each component's security configuration in the example's :devx-cp-demo:`docker-compose.yml|docker-compose.yml` file.
 
 .. note::
-    This demo showcases a secure |CP| for educational purposes and is not meant to be complete best practices. There are certain differences between what is shown in the demo and what you should do in production:
+    This example showcases a secure |CP| for educational purposes and is not meant to be complete best practices. There are certain differences between what is shown in the example and what you should do in production:
 
     * Authorize users only for operations that they need, instead of making all of them super users
     * If the ``PLAINTEXT`` security protocol is used, these ``ANONYMOUS`` usernames should not be configured as super users
     * Consider not even opening the ``PLAINTEXT`` port if ``SSL`` or ``SASL_SSL`` are configured
 
-There is an OpenLDAP server running in the demo, and each Kafka broker in the demo is configured with MDS and can talk to LDAP so that it can authenticate clients and Confluent Platform services and clients.
+There is an OpenLDAP server running in the example, and each Kafka broker in the demo is configured with |mds-long| and can talk to LDAP so that it can authenticate clients and |cp| services and clients.
 
-Zookeeper has two listener ports:
+|zk| has two listener ports:
 
-+---------------+----------------+--------------------------------------------------------------------+--------+--------+
-| Name          | Protocol       | In this demo, used for ...                                         | zookeeper       |
++---------------+----------------+--------------------------------------------------------------------+-----------------+
+| Name          | Protocol       | In this example, used for ...                                      | ZooKeeper       |
 +===============+================+====================================================================+=================+
 | N/A           | SASL/DIGEST-MD5| Validating trial license for |crest| and |sr|. (no TLS support)    | 2181            |
 +---------------+----------------+--------------------------------------------------------------------+-----------------+
@@ -421,7 +446,7 @@ Zookeeper has two listener ports:
 Each broker has five listener ports:
 
 +---------------+----------------+--------------------------------------------------------------------+--------+--------+
-| Name          | Protocol       | In this demo, used for ...                                         | kafka1 | kafka2 |
+| Name          | Protocol       | In this example, used for ...                                      | kafka1 | kafka2 |
 +===============+================+====================================================================+========+========+
 | N/A           | MDS            | Authorization via RBAC                                             | 8091   | 8092   |
 +---------------+----------------+--------------------------------------------------------------------+--------+--------+
@@ -437,10 +462,10 @@ Each broker has five listener ports:
 End clients (non-CP clients):
 
 - Authenticate using mTLS via the broker SSL listener.
-- If they are also using |sr|, authenticate to Schema Registry via LDAP.
+- If they are also using |sr|, authenticate to |sr| via LDAP.
 - If they are also using Confluent Monitoring interceptors, authenticate using mTLS via the broker SSL listener.
 - Should never use the TOKEN listener which is meant only for internal communication between Confluent components.
-- See :devx-cp-demo:`client configuration|env_files/streams-demo.env/` used in the demo by the ``streams-demo`` container running the Kafka Streams application ``wikipedia-activity-monitor``.
+- See :devx-cp-demo:`client configuration|env_files/streams-demo.env/` used in the example by the ``streams-demo`` container running the |kstreams| application ``wikipedia-activity-monitor``.
 
 #. Verify the ports on which the Kafka brokers are listening with the
    following command, and they should match the table shown below:
@@ -450,27 +475,33 @@ End clients (non-CP clients):
           docker-compose logs kafka1 | grep "Registered broker 1"
           docker-compose logs kafka2 | grep "Registered broker 2"
 
-#. For demo only: Communicate with brokers via the PLAINTEXT port, client configurations are required
+#. For example only: Communicate with brokers via the PLAINTEXT port, client security configurations are not required
 
    .. sourcecode:: bash
 
            # CLEAR/PLAINTEXT port
-           docker-compose exec kafka1 kafka-consumer-groups --list --bootstrap-server kafka1:12091
+           docker-compose exec kafka1 kafka-consumer-groups \
+              --list \
+              --bootstrap-server kafka1:12091
 
 #. End clients: Communicate with brokers via the SSL port, and SSL parameters configured via the ``--command-config`` argument for command line tools or ``--consumer.config`` for kafka-console-consumer.
 
    .. sourcecode:: bash
 
            # SSL/SSL port
-           docker-compose exec kafka1 kafka-consumer-groups --list --bootstrap-server kafka1:11091 \
-               --command-config /etc/kafka/secrets/client_without_interceptors_ssl.config
+           docker-compose exec kafka1 kafka-consumer-groups \
+              --list \
+              --bootstrap-server kafka1:11091 \
+              --command-config /etc/kafka/secrets/client_without_interceptors_ssl.config
 
-#. If a client tries to communicate with brokers via the SSL port but does not specify the SSL parameters, it will fail
+#. If a client tries to communicate with brokers via the SSL port but does not specify the SSL parameters, it fails
 
    .. sourcecode:: bash
 
            # SSL/SSL port
-           docker-compose exec kafka1 kafka-consumer-groups --list --bootstrap-server kafka1:11091
+           docker-compose exec kafka1 kafka-consumer-groups \
+              --list \
+              --bootstrap-server kafka1:11091
 
    Your output should resemble:
 
@@ -485,27 +516,30 @@ End clients (non-CP clients):
    .. sourcecode:: bash
 
            # INTERNAL/SASL_PLAIN port
-           docker-compose exec kafka1 kafka-consumer-groups --list --bootstrap-server kafka1:9091 \
-               --command-config /etc/kafka/secrets/client_sasl_plain.config
+           docker-compose exec kafka1 kafka-consumer-groups \
+              --list \
+              --bootstrap-server kafka1:9091 \
+              --command-config /etc/kafka/secrets/client_sasl_plain.config
 
 #. Verify which users are configured to be super users.
 
    .. sourcecode:: bash
 
-         docker-compose logs kafka1 | grep SUPER_USERS
+         docker-compose logs kafka1 | grep "super.users ="
 
    Your output should resemble the following. Notice this authorizes each service name which authenticates as itself,
    as well as the unauthenticated ``PLAINTEXT`` which authenticates as ``ANONYMOUS`` (for demo purposes only):
 
    .. sourcecode:: bash
 
-         KAFKA_SUPER_USERS=User:admin;User:mds;User:superUser;User:ANONYMOUS
+         kafka1            | 	super.users = User:admin;User:mds;User:superUser;User:ANONYMOUS
 
-#. Verify that LDAP user ``appSA`` (which is not a super user) can consume messages from topic ``wikipedia.parsed``.  Notice that it is configured to authenticate to brokers with mTLS and authenticate to Schema Registry with LDAP.
+#. Verify that LDAP user ``appSA`` (which is not a super user) can consume messages from topic ``wikipedia.parsed``.  Notice that it is configured to authenticate to brokers with mTLS and authenticate to |sr| with LDAP.
 
    .. sourcecode:: bash
 
-         docker-compose exec connect kafka-avro-console-consumer --bootstrap-server kafka1:11091,kafka2:11092 \
+         docker-compose exec connect kafka-avro-console-consumer \
+           --bootstrap-server kafka1:11091,kafka2:11092 \
            --consumer-property security.protocol=SSL \
            --consumer-property ssl.truststore.location=/etc/kafka/secrets/kafka.appSA.truststore.jks \
            --consumer-property ssl.truststore.password=confluent \
@@ -525,7 +559,8 @@ End clients (non-CP clients):
 
    .. sourcecode:: bash
 
-         docker-compose exec connect kafka-avro-console-consumer --bootstrap-server kafka1:11091,kafka2:11092 \
+         docker-compose exec connect kafka-avro-console-consumer \
+           --bootstrap-server kafka1:11091,kafka2:11092 \
            --consumer-property security.protocol=SSL \
            --consumer-property ssl.truststore.location=/etc/kafka/secrets/kafka.badapp.truststore.jks \
            --consumer-property ssl.truststore.password=confluent \
@@ -548,28 +583,31 @@ End clients (non-CP clients):
       ERROR [Consumer clientId=consumer-wikipedia.test-1, groupId=wikipedia.test] Topic authorization failed for topics [wikipedia.parsed]
       org.apache.kafka.common.errors.TopicAuthorizationException: Not authorized to access topics: [wikipedia.parsed]
 
-#. Add a role binding that permits ``badapp`` client to consume from topic ``wikipedia.parsed`` and its related subject in |sr|.
+#. Create role bindings to permit ``badapp`` client to consume from topic ``wikipedia.parsed`` and its related subject in |sr|.
 
-   .. sourcecode:: bash
+   Get the |ak| cluster ID:
 
-      # First get the KAFKA_CLUSTER_ID
-      KAFKA_CLUSTER_ID=$(docker-compose exec zookeeper zookeeper-shell zookeeper:2181 get /cluster/id 2> /dev/null | grep \"version\" | jq -r .id)
+   .. literalinclude:: includes/get_kafka_cluster_id_from_host.sh
 
-      # Then create the role binding for the topic ``wikipedia.parsed``
+   Create the role bindings:
+
+   .. code-block:: text
+
+      # Create the role binding for the topic ``wikipedia.parsed``
       docker-compose exec tools bash -c "confluent iam rolebinding create \
           --principal User:badapp \
           --role ResourceOwner \
           --resource Topic:wikipedia.parsed \
           --kafka-cluster-id $KAFKA_CLUSTER_ID"
 
-      # Then create the role binding for the group ``wikipedia.test``
+      # Create the role binding for the group ``wikipedia.test``
       docker-compose exec tools bash -c "confluent iam rolebinding create \
           --principal User:badapp \
           --role ResourceOwner \
           --resource Group:wikipedia.test \
           --kafka-cluster-id $KAFKA_CLUSTER_ID"
 
-      # Then create the role binding for the subject ``wikipedia.parsed-value``, i.e., the topic-value (versus the topic-key)
+      # Create the role binding for the subject ``wikipedia.parsed-value``, i.e., the topic-value (versus the topic-key)
       docker-compose exec tools bash -c "confluent iam rolebinding create \
           --principal User:badapp \
           --role ResourceOwner \
@@ -581,7 +619,8 @@ End clients (non-CP clients):
 
    .. sourcecode:: bash
 
-         docker-compose exec connect kafka-avro-console-consumer --bootstrap-server kafka1:11091,kafka2:11092 \
+         docker-compose exec connect kafka-avro-console-consumer \
+           --bootstrap-server kafka1:11091,kafka2:11092 \
            --consumer-property security.protocol=SSL \
            --consumer-property ssl.truststore.location=/etc/kafka/secrets/kafka.badapp.truststore.jks \
            --consumer-property ssl.truststore.password=confluent \
@@ -604,7 +643,7 @@ End clients (non-CP clients):
           cd scripts/validate
           ./validate_bindings.sh
 
-#. Because |zk| is configured for `SASL/DIGEST-MD5 <https://docs.confluent.io/current/kafka/authentication_sasl_plain.html#zookeeper>`__, any commands that communicate with |zk| need properties set for |zk| authentication. This authentication configuration is provided by the ``KAFKA_OPTS`` setting on the brokers. For example, notice that the `throttle script <scripts/app/throttle_consumer.sh>`__ runs on the Docker container ``kafka1`` which has the appropriate `KAFKA_OPTS` setting. The command would otherwise fail if run on any other container aside from ``kafka1`` or ``kafka2``.
+#. Because |zk| is configured for :ref:`SASL/DIGEST-MD5 <kafka_sasl_auth_plain>`, any commands that communicate with |zk| need properties set for |zk| authentication. This authentication configuration is provided by the ``KAFKA_OPTS`` setting on the brokers. For example, notice that the `throttle script <scripts/app/throttle_consumer.sh>`__ runs on the Docker container ``kafka1`` which has the appropriate `KAFKA_OPTS` setting. The command would otherwise fail if run on any other container aside from ``kafka1`` or ``kafka2``.
 
 #. Next step: Learn more about security with the :ref:`Security Tutorial <security_tutorial>`.
 
@@ -612,7 +651,7 @@ End clients (non-CP clients):
 Data Governance with |sr|
 -------------------------
 
-All the applications and connectors used in this demo are configured to automatically read and write Avro-formatted data, leveraging the `Confluent Schema Registry <https://docs.confluent.io/current/schema-registry/docs/index.html>`__ .
+All the applications and connectors used in this example are configured to automatically read and write Avro-formatted data, leveraging the :ref:`Confluent Schema Registry <schemaregistry_intro>`.
 
 The security in place between |sr| and the end clients, e.g. ``appSA``, is as follows:
 
@@ -623,9 +662,15 @@ The security in place between |sr| and the end clients, e.g. ``appSA``, is as fo
 
 #. View the |sr| subjects for topics that have registered schemas for their keys and/or values. Notice the ``curl`` arguments include (a) TLS information required to interact with |sr| which is listening for HTTPS on port 8085, and (b) authentication credentials required for RBAC (using `superUser:superUser` to see all of them).
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
-       docker-compose exec schemaregistry curl -X GET --cert /etc/kafka/secrets/schemaregistry.certificate.pem --key /etc/kafka/secrets/schemaregistry.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt -u superUser:superUser https://schemaregistry:8085/subjects | jq .
+       docker-compose exec schemaregistry curl -X GET \
+          --cert /etc/kafka/secrets/schemaregistry.certificate.pem \
+          --key /etc/kafka/secrets/schemaregistry.key \
+          --tlsv1.2 \
+          --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+          -u superUser:superUser \
+          https://schemaregistry:8085/subjects | jq .
 
    Your output should resemble:
 
@@ -635,19 +680,26 @@ The security in place between |sr| and the end clients, e.g. ``appSA``, is as fo
          "wikipedia.parsed.replica-value",
          "EN_WIKIPEDIA_GT_1_COUNTS-value",
          "WIKIPEDIABOT-value",
-         "_confluent-ksql-ksql-clusterquery_CTAS_EN_WIKIPEDIA_GT_1_4-Aggregate-aggregate-changelog-value",
          "EN_WIKIPEDIA_GT_1-value",
-         "wikipedia.parsed.count-by-channel-value",
-         "_confluent-ksql-ksql-clusterquery_CTAS_EN_WIKIPEDIA_GT_1_4-Aggregate-groupby-repartition-value",
+         "_confluent-ksql-ksql-clusterquery_CTAS_EN_WIKIPEDIA_GT_1_7-Aggregate-Aggregate-Materialize-changelog-value",
          "WIKIPEDIANOBOT-value",
+         "_confluent-ksql-ksql-clusterquery_CTAS_EN_WIKIPEDIA_GT_1_7-Aggregate-GroupBy-repartition-value",
          "wikipedia.parsed-value"
-      ]
+       ]
 
 #. Instead of using the superUser credentials, now use client credentials `noexist:noexist` (user does not exist in LDAP) to try to register a new Avro schema (a record with two fields ``username`` and ``userid``) into |sr| for the value of a new topic ``users``. It should fail due to an authorization error.
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
-       docker-compose exec schemaregistry curl -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" --cert /etc/kafka/secrets/schemaregistry.certificate.pem --key /etc/kafka/secrets/schemaregistry.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt --data '{ "schema": "[ { \"type\":\"record\", \"name\":\"user\", \"fields\": [ {\"name\":\"userid\",\"type\":\"long\"}, {\"name\":\"username\",\"type\":\"string\"} ]} ]" }' -u noexist:noexist https://schemaregistry:8085/subjects/users-value/versions
+       docker-compose exec schemaregistry curl -X POST \
+          -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+          --cert /etc/kafka/secrets/schemaregistry.certificate.pem \
+          --key /etc/kafka/secrets/schemaregistry.key \
+          --tlsv1.2 \
+          --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+          --data '{ "schema": "[ { \"type\":\"record\", \"name\":\"user\", \"fields\": [ {\"name\":\"userid\",\"type\":\"long\"}, {\"name\":\"username\",\"type\":\"string\"} ]} ]" }' \
+          -u noexist:noexist \
+          https://schemaregistry:8085/subjects/users-value/versions
 
    Your output should resemble:
 
@@ -657,9 +709,17 @@ The security in place between |sr| and the end clients, e.g. ``appSA``, is as fo
 
 #. Instead of using credentials for a user that does not exist, now use the client credentials `appSA:appSA` (the user `appSA` exists in LDAP) to try to register a new Avro schema (a record with two fields ``username`` and ``userid``) into |sr| for the value of a new topic ``users``. It should fail due to an authorization error, with a different message than above.
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
-       docker-compose exec schemaregistry curl -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" --cert /etc/kafka/secrets/schemaregistry.certificate.pem --key /etc/kafka/secrets/schemaregistry.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt --data '{ "schema": "[ { \"type\":\"record\", \"name\":\"user\", \"fields\": [ {\"name\":\"userid\",\"type\":\"long\"}, {\"name\":\"username\",\"type\":\"string\"} ]} ]" }' -u appSA:appSA https://schemaregistry:8085/subjects/users-value/versions
+       docker-compose exec schemaregistry curl -X POST \
+          -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+          --cert /etc/kafka/secrets/schemaregistry.certificate.pem \
+          --key /etc/kafka/secrets/schemaregistry.key \
+          --tlsv1.2 \
+          --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+          --data '{ "schema": "[ { \"type\":\"record\", \"name\":\"user\", \"fields\": [ {\"name\":\"userid\",\"type\":\"long\"}, {\"name\":\"username\",\"type\":\"string\"} ]} ]" }' \
+          -u appSA:appSA \
+          https://schemaregistry:8085/subjects/users-value/versions
 
    Your output should resemble:
 
@@ -669,12 +729,15 @@ The security in place between |sr| and the end clients, e.g. ``appSA``, is as fo
 
 #. Create a role binding for the ``appSA`` client permitting it access to |sr|.
 
-   .. sourcecode:: bash
+   Get the |ak| cluster ID:
 
-      # First get the KAFKA_CLUSTER_ID
-      KAFKA_CLUSTER_ID=$(docker-compose exec zookeeper zookeeper-shell zookeeper:2181 get /cluster/id 2> /dev/null | grep \"version\" | jq -r .id)
+   .. literalinclude:: includes/get_kafka_cluster_id_from_host.sh
 
-      # Then create the role binding for the subject ``users-value``, i.e., the topic-value (versus the topic-key)
+   Create the role binding:
+
+   .. code-block:: text
+
+      # Create the role binding for the subject ``users-value``, i.e., the topic-value (versus the topic-key)
       docker-compose exec tools bash -c "confluent iam rolebinding create \
           --principal User:appSA \
           --role ResourceOwner \
@@ -682,17 +745,25 @@ The security in place between |sr| and the end clients, e.g. ``appSA``, is as fo
           --kafka-cluster-id $KAFKA_CLUSTER_ID \
           --schema-registry-cluster-id schema-registry"
 
-#. Again try to register the schema. It should pass this time.  Note the schema id that it returns, e.g. below schema id is ``7``.
+#. Again try to register the schema. It should pass this time.  Note the schema id that it returns, e.g. below schema id is ``11``.
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
-       docker-compose exec schemaregistry curl -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" --cert /etc/kafka/secrets/schemaregistry.certificate.pem --key /etc/kafka/secrets/schemaregistry.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt --data '{ "schema": "[ { \"type\":\"record\", \"name\":\"user\", \"fields\": [ {\"name\":\"userid\",\"type\":\"long\"}, {\"name\":\"username\",\"type\":\"string\"} ]} ]" }' -u appSA:appSA https://schemaregistry:8085/subjects/users-value/versions
+       docker-compose exec schemaregistry curl -X POST \
+          -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+          --cert /etc/kafka/secrets/schemaregistry.certificate.pem \
+          --key /etc/kafka/secrets/schemaregistry.key \
+          --tlsv1.2 \
+          --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+          --data '{ "schema": "[ { \"type\":\"record\", \"name\":\"user\", \"fields\": [ {\"name\":\"userid\",\"type\":\"long\"}, {\"name\":\"username\",\"type\":\"string\"} ]} ]" }' \
+          -u appSA:appSA \
+          https://schemaregistry:8085/subjects/users-value/versions
 
    Your output should resemble:
 
    .. sourcecode:: bash
 
-     {"id":7}
+     {"id":11}
 
 #. View the new schema for the subject ``users-value``. From |c3|, click **Topics**. Scroll down to and click on the topic `users` and select "SCHEMA".
 
@@ -701,9 +772,15 @@ The security in place between |sr| and the end clients, e.g. ``appSA``, is as fo
    
    You may alternatively request the schema via the command line:
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
-       docker-compose exec schemaregistry curl -X GET --cert /etc/kafka/secrets/schemaregistry.certificate.pem --key /etc/kafka/secrets/schemaregistry.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt -u appSA:appSA https://schemaregistry:8085/subjects/users-value/versions/1 | jq .
+       docker-compose exec schemaregistry curl -X GET \
+          --cert /etc/kafka/secrets/schemaregistry.certificate.pem \
+          --key /etc/kafka/secrets/schemaregistry.key \
+          --tlsv1.2 \
+          --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+          -u appSA:appSA \
+          https://schemaregistry:8085/subjects/users-value/versions/1 | jq .
 
    Your output should resemble:
 
@@ -712,7 +789,7 @@ The security in place between |sr| and the end clients, e.g. ``appSA``, is as fo
      {
        "subject": "users-value",
        "version": 1,
-       "id": 7,
+       "id": 11,
        "schema": "{\"type\":\"record\",\"name\":\"user\",\"fields\":[{\"name\":\"username\",\"type\":\"string\"},{\"name\":\"userid\",\"type\":\"long\"}]}"
      }
 
@@ -720,21 +797,27 @@ The security in place between |sr| and the end clients, e.g. ``appSA``, is as fo
 
    .. sourcecode:: bash
 
-      docker-compose exec kafka1 kafka-topics --describe --topic users --bootstrap-server kafka1:9091 --command-config /etc/kafka/secrets/client_sasl_plain.config
+      docker-compose exec kafka1 kafka-topics \
+         --describe \
+         --topic users \
+         --bootstrap-server kafka1:9091 \
+         --command-config /etc/kafka/secrets/client_sasl_plain.config
 
    Your output should resemble:
 
    .. sourcecode:: bash
 
       Topic: users	PartitionCount: 2	ReplicationFactor: 2	Configs: confluent.value.schema.validation=true
-	      Topic: users	Partition: 0	Leader: 1	Replicas: 1,2	Isr: 1,2	Offline: 	LiveObservers: 
-	      Topic: users	Partition: 1	Leader: 2	Replicas: 2,1	Isr: 2,1	Offline: 	LiveObservers: 
+	      Topic: users	Partition: 0	Leader: 1	Replicas: 1,2	Isr: 1,2	Offline: 
+	      Topic: users	Partition: 1	Leader: 2	Replicas: 2,1	Isr: 2,1	Offline: 
 
-#. Produce a non-Avro message to this topic using ``kafka-console-producer``, and it will result in a failure.
+#. Produce a non-Avro message to this topic using ``kafka-console-producer``, and it results in a failure.
 
    .. sourcecode:: bash
 
-      docker-compose exec connect kafka-console-producer --topic users --broker-list kafka1:11091 \
+      docker-compose exec connect kafka-console-producer \
+           --topic users \
+           --broker-list kafka1:11091 \
            --producer-property security.protocol=SSL \
            --producer-property ssl.truststore.location=/etc/kafka/secrets/kafka.appSA.truststore.jks \
            --producer-property ssl.truststore.password=confluent \
@@ -753,42 +836,66 @@ The security in place between |sr| and the end clients, e.g. ``appSA``, is as fo
 
    .. sourcecode:: bash
 
-      docker-compose exec kafka1 kafka-topics --describe --topic wikipedia.parsed --bootstrap-server kafka1:9091 --command-config /etc/kafka/secrets/client_sasl_plain.config
+      docker-compose exec kafka1 kafka-topics \
+         --describe \
+         --topic wikipedia.parsed \
+         --bootstrap-server kafka1:9091 \
+         --command-config /etc/kafka/secrets/client_sasl_plain.config
 
-#. Describe the topic ``wikipedia.parsed.replica``, which is the topic that |crep| has replicated from ``wikipedia.parsed``. Notice that it also has enabled |sv|, because |crep| default is ``topic.config.sync=true`` (see |crep| :ref:`documentation <rep-destination-topics>`).
+#. Describe the topic ``wikipedia.parsed.replica``, which is the topic that |crep| has replicated from ``wikipedia.parsed``. Notice that it also has enabled |sv|, because |crep| default is ``topic.config.sync=true`` (see |crep| `Destination Topics <https://docs.confluent.io/kafka-connect-replicator/current/configuration_options.html#destination-topics>`__).
 
    .. sourcecode:: bash
 
-      docker-compose exec kafka1 kafka-topics --describe --topic wikipedia.parsed.replica --bootstrap-server kafka1:9091 --command-config /etc/kafka/secrets/client_sasl_plain.config
+      docker-compose exec kafka1 kafka-topics \
+         --describe \
+         --topic wikipedia.parsed.replica \
+         --bootstrap-server kafka1:9091 \
+         --command-config /etc/kafka/secrets/client_sasl_plain.config
 
 #. Next step: Learn more about |sr| with the :ref:`Schema Registry Tutorial <schema_registry_tutorial>`.
 
 
-Confluent REST Proxy
---------------------
+|crest-long|
+------------
 
-The `Confluent REST Proxy <https://docs.confluent.io/current/kafka-rest/docs/index.html>`__  is running for optional client access.
+The :ref:`Confluent REST Proxy <kafkarest_intro>`  is running for optional client access.
+This demo showcases |crest-long| in two modes:
 
-#. Use the |crest|, which is listening for HTTPS on port 8086, to try to produce a message to the topic ``users``, referencing schema id ``7``. This schema was registered in |sr| in the previous section. It should fail due to an authorization error.
+- Standalone service, listening for HTTPS requests on port 8086
+- Embedded service on the |ak| brokers, listening for HTTPS requests on port 8091 on ``kafka1`` and on port 8092 on ``kafka2`` (these |crest| ports are shared with the broker's |mds-long| listener)
 
-   .. sourcecode:: bash
+#. Use the standalone |crest| to try to produce a message to the topic ``users``, referencing schema id ``11``. This schema was registered in |sr| in the previous section. It should fail due to an authorization error.
 
-     docker-compose exec restproxy curl -X POST -H "Content-Type: application/vnd.kafka.avro.v2+json" -H "Accept: application/vnd.kafka.v2+json" --cert /etc/kafka/secrets/restproxy.certificate.pem --key /etc/kafka/secrets/restproxy.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt --data '{"value_schema_id": 7, "records": [{"value": {"user":{"userid": 1, "username": "Bunny Smith"}}}]}' -u appSA:appSA https://restproxy:8086/topics/users
+   .. code-block:: text
+
+     docker-compose exec restproxy curl -X POST \
+        -H "Content-Type: application/vnd.kafka.avro.v2+json" \
+        -H "Accept: application/vnd.kafka.v2+json" \
+        --cert /etc/kafka/secrets/restproxy.certificate.pem \
+        --key /etc/kafka/secrets/restproxy.key \
+        --tlsv1.2 \
+        --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+        --data '{"value_schema_id": 11, "records": [{"value": {"user":{"userid": 1, "username": "Bunny Smith"}}}]}' \
+        -u appSA:appSA \
+        https://restproxy:8086/topics/users
 
    Your output should resemble:
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
-      {"offsets":[{"partition":null,"offset":null,"error_code":40301,"error":"Not authorized to access topics: [users]"}],"key_schema_id":null,"value_schema_id":7}
+      {"offsets":[{"partition":null,"offset":null,"error_code":40301,"error":"Not authorized to access topics: [users]"}],"key_schema_id":null,"value_schema_id":11}
 
 #. Create a role binding for the client permitting it produce to the topic ``users``.
 
-   .. sourcecode:: bash
+   Get the |ak| cluster ID:
 
-      # First get the KAFKA_CLUSTER_ID
-      KAFKA_CLUSTER_ID=$(docker-compose exec zookeeper zookeeper-shell zookeeper:2181 get /cluster/id 2> /dev/null | grep \"version\" | jq -r .id)
+   .. literalinclude:: includes/get_kafka_cluster_id_from_host.sh
 
-      # Then create the role binding for the topic ``users``
+   Create the role binding:
+
+   .. code-block:: text
+
+      # Create the role binding for the topic ``users``
       docker-compose exec tools bash -c "confluent iam rolebinding create \
           --principal User:appSA \
           --role DeveloperWrite \
@@ -797,54 +904,89 @@ The `Confluent REST Proxy <https://docs.confluent.io/current/kafka-rest/docs/ind
 
 #. Again try to produce a message to the topic ``users``. It should pass this time.
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
-     docker-compose exec restproxy curl -X POST -H "Content-Type: application/vnd.kafka.avro.v2+json" -H "Accept: application/vnd.kafka.v2+json" --cert /etc/kafka/secrets/restproxy.certificate.pem --key /etc/kafka/secrets/restproxy.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt --data '{"value_schema_id": 7, "records": [{"value": {"user":{"userid": 1, "username": "Bunny Smith"}}}]}' -u appSA:appSA https://restproxy:8086/topics/users
+     docker-compose exec restproxy curl -X POST \
+        -H "Content-Type: application/vnd.kafka.avro.v2+json" \
+        -H "Accept: application/vnd.kafka.v2+json" \
+        --cert /etc/kafka/secrets/restproxy.certificate.pem \
+        --key /etc/kafka/secrets/restproxy.key \
+        --tlsv1.2 \
+        --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+        --data '{"value_schema_id": 11, "records": [{"value": {"user":{"userid": 1, "username": "Bunny Smith"}}}]}' \
+        -u appSA:appSA \
+        https://restproxy:8086/topics/users
 
    Your output should resemble:
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
-     {"offsets":[{"partition":1,"offset":0,"error_code":null,"error":null}],"key_schema_id":null,"value_schema_id":7}
+     {"offsets":[{"partition":1,"offset":0,"error_code":null,"error":null}],"key_schema_id":null,"value_schema_id":11}
 
 #. Create consumer instance ``my_avro_consumer``.
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
-       docker-compose exec restproxy curl -X POST -H "Content-Type: application/vnd.kafka.v2+json" --cert /etc/kafka/secrets/restproxy.certificate.pem --key /etc/kafka/secrets/restproxy.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt --data '{"name": "my_consumer_instance", "format": "avro", "auto.offset.reset": "earliest"}' -u appSA:appSA https://restproxy:8086/consumers/my_avro_consumer
+      docker-compose exec restproxy curl -X POST \
+         -H "Content-Type: application/vnd.kafka.v2+json" \
+         --cert /etc/kafka/secrets/restproxy.certificate.pem \
+         --key /etc/kafka/secrets/restproxy.key \
+         --tlsv1.2 \
+         --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+         --data '{"name": "my_consumer_instance", "format": "avro", "auto.offset.reset": "earliest"}' \
+         -u appSA:appSA \
+         https://restproxy:8086/consumers/my_avro_consumer
 
    Your output should resemble:
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
       {"instance_id":"my_consumer_instance","base_uri":"https://restproxy:8086/consumers/my_avro_consumer/instances/my_consumer_instance"}
 
 #. Subscribe ``my_avro_consumer`` to the ``users`` topic.
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
-       docker-compose exec restproxy curl -X POST -H "Content-Type: application/vnd.kafka.v2+json" --cert /etc/kafka/secrets/restproxy.certificate.pem --key /etc/kafka/secrets/restproxy.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt --data '{"topics":["users"]}' -u appSA:appSA https://restproxy:8086/consumers/my_avro_consumer/instances/my_consumer_instance/subscription
+      docker-compose exec restproxy curl -X POST \
+         -H "Content-Type: application/vnd.kafka.v2+json" \
+         --cert /etc/kafka/secrets/restproxy.certificate.pem \
+         --key /etc/kafka/secrets/restproxy.key \
+         --tlsv1.2 \
+         --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+         --data '{"topics":["users"]}' \
+         -u appSA:appSA \
+         https://restproxy:8086/consumers/my_avro_consumer/instances/my_consumer_instance/subscription
 
 #. Try to consume messages for ``my_avro_consumer`` subscriptions. It should fail due to an authorization error.
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
-       docker-compose exec restproxy curl -X GET -H "Accept: application/vnd.kafka.avro.v2+json" --cert /etc/kafka/secrets/restproxy.certificate.pem --key /etc/kafka/secrets/restproxy.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt -u appSA:appSA https://restproxy:8086/consumers/my_avro_consumer/instances/my_consumer_instance/records
+      docker-compose exec restproxy curl -X GET \
+         -H "Accept: application/vnd.kafka.avro.v2+json" \
+         --cert /etc/kafka/secrets/restproxy.certificate.pem \
+         --key /etc/kafka/secrets/restproxy.key \
+         --tlsv1.2 \
+         --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+         -u appSA:appSA \
+         https://restproxy:8086/consumers/my_avro_consumer/instances/my_consumer_instance/records
   
    Your output should resemble:
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
         {"error_code":40301,"message":"Not authorized to access group: my_avro_consumer"} 
 
 #. Create a role binding for the client permitting it access to the consumer group ``my_avro_consumer``.
 
-   .. sourcecode:: bash
+   Get the |ak| cluster ID:
 
-      # First get the KAFKA_CLUSTER_ID
-      KAFKA_CLUSTER_ID=$(docker-compose exec zookeeper zookeeper-shell zookeeper:2181 get /cluster/id 2> /dev/null | grep \"version\" | jq -r .id)
+   .. literalinclude:: includes/get_kafka_cluster_id_from_host.sh
 
-      # Then create the role binding for the group ``my_avro_consumer``
+   Create the role binding:
+
+   .. code-block:: text
+
+      # Create the role binding for the group ``my_avro_consumer``
       docker-compose exec tools bash -c "confluent iam rolebinding create \
           --principal User:appSA \
           --role ResourceOwner \
@@ -853,26 +995,44 @@ The `Confluent REST Proxy <https://docs.confluent.io/current/kafka-rest/docs/ind
 
 #. Again try to consume messages for ``my_avro_consumer`` subscriptions. It should fail due to a different authorization error.
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
-       # Note: Issue this command twice due to https://github.com/confluentinc/kafka-rest/issues/432
-       docker-compose exec restproxy curl -X GET -H "Accept: application/vnd.kafka.avro.v2+json" --cert /etc/kafka/secrets/restproxy.certificate.pem --key /etc/kafka/secrets/restproxy.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt -u appSA:appSA https://restproxy:8086/consumers/my_avro_consumer/instances/my_consumer_instance/records
-       docker-compose exec restproxy curl -X GET -H "Accept: application/vnd.kafka.avro.v2+json" --cert /etc/kafka/secrets/restproxy.certificate.pem --key /etc/kafka/secrets/restproxy.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt -u appSA:appSA https://restproxy:8086/consumers/my_avro_consumer/instances/my_consumer_instance/records
+      # Note: Issue this command twice due to https://github.com/confluentinc/kafka-rest/issues/432
+      docker-compose exec restproxy curl -X GET \
+         -H "Accept: application/vnd.kafka.avro.v2+json" \
+         --cert /etc/kafka/secrets/restproxy.certificate.pem \
+         --key /etc/kafka/secrets/restproxy.key \
+         --tlsv1.2 \
+         --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+         -u appSA:appSA \
+         https://restproxy:8086/consumers/my_avro_consumer/instances/my_consumer_instance/records
+
+      docker-compose exec restproxy curl -X GET \
+         -H "Accept: application/vnd.kafka.avro.v2+json" \
+         --cert /etc/kafka/secrets/restproxy.certificate.pem \
+         --key /etc/kafka/secrets/restproxy.key \
+         --tlsv1.2 \
+         --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+         -u appSA:appSA \
+         https://restproxy:8086/consumers/my_avro_consumer/instances/my_consumer_instance/records
 
    Your output should resemble:
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
       {"error_code":40301,"message":"Not authorized to access topics: [users]"}
 
 #. Create a role binding for the client permitting it access to the topic ``users``.
 
-   .. sourcecode:: bash
+   Get the |ak| cluster ID:
 
-      # First get the KAFKA_CLUSTER_ID
-      KAFKA_CLUSTER_ID=$(docker-compose exec zookeeper zookeeper-shell zookeeper:2181 get /cluster/id 2> /dev/null | grep \"version\" | jq -r .id)
+   .. literalinclude:: includes/get_kafka_cluster_id_from_host.sh
 
-      # Then create the role binding for the group my_avro_consumer
+   Create the role binding:
+
+   .. code-block:: text
+
+      # Create the role binding for the group my_avro_consumer
       docker-compose exec tools bash -c "confluent iam rolebinding create \
           --principal User:appSA \
           --role DeveloperRead \
@@ -881,24 +1041,103 @@ The `Confluent REST Proxy <https://docs.confluent.io/current/kafka-rest/docs/ind
 
 #. Again try to consume messages for ``my_avro_consumer`` subscriptions. It should pass this time.
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
        # Note: Issue this command twice due to https://github.com/confluentinc/kafka-rest/issues/432
-       docker-compose exec restproxy curl -X GET -H "Accept: application/vnd.kafka.avro.v2+json" --cert /etc/kafka/secrets/restproxy.certificate.pem --key /etc/kafka/secrets/restproxy.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt -u appSA:appSA https://restproxy:8086/consumers/my_avro_consumer/instances/my_consumer_instance/records
-       docker-compose exec restproxy curl -X GET -H "Accept: application/vnd.kafka.avro.v2+json" --cert /etc/kafka/secrets/restproxy.certificate.pem --key /etc/kafka/secrets/restproxy.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt -u appSA:appSA https://restproxy:8086/consumers/my_avro_consumer/instances/my_consumer_instance/records
+       docker-compose exec restproxy curl -X GET \
+          -H "Accept: application/vnd.kafka.avro.v2+json" \
+          --cert /etc/kafka/secrets/restproxy.certificate.pem \
+          --key /etc/kafka/secrets/restproxy.key \
+          --tlsv1.2 \
+          --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+          -u appSA:appSA \
+          https://restproxy:8086/consumers/my_avro_consumer/instances/my_consumer_instance/records
+
+       docker-compose exec restproxy curl -X GET \
+          -H "Accept: application/vnd.kafka.avro.v2+json" \
+          --cert /etc/kafka/secrets/restproxy.certificate.pem \
+          --key /etc/kafka/secrets/restproxy.key \
+          --tlsv1.2 \
+          --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+          -u appSA:appSA \
+          https://restproxy:8086/consumers/my_avro_consumer/instances/my_consumer_instance/records
 
     Your output should resemble:
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
       [{"topic":"users","key":null,"value":{"userid":1,"username":"Bunny Smith"},"partition":1,"offset":0}]
 
 #. Delete the consumer instance ``my_avro_consumer``.
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
-       docker-compose exec restproxy curl -X DELETE -H "Content-Type: application/vnd.kafka.v2+json" --cert /etc/kafka/secrets/restproxy.certificate.pem --key /etc/kafka/secrets/restproxy.key --tlsv1.2 --cacert /etc/kafka/secrets/snakeoil-ca-1.crt -u appSA:appSA https://restproxy:8086/consumers/my_avro_consumer/instances/my_consumer_instance
+      docker-compose exec restproxy curl -X DELETE \
+         -H "Content-Type: application/vnd.kafka.v2+json" \
+         --cert /etc/kafka/secrets/restproxy.certificate.pem \
+         --key /etc/kafka/secrets/restproxy.key \
+         --tlsv1.2 \
+         --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+         -u appSA:appSA \
+         https://restproxy:8086/consumers/my_avro_consumer/instances/my_consumer_instance
 
+#. For the next few steps, use the |crest| that is embedded on the |ak| brokers. Only :ref:`rest-proxy-v3` is supported this time.  Create a role binding for the client to be granted ``ResourceOwner`` role for the topic ``dev_users``.
+
+   Get the |ak| cluster ID:
+
+   .. literalinclude:: includes/get_kafka_cluster_id_from_host.sh
+
+   Create the role binding:
+
+   .. code-block:: text
+
+      # Create the role binding for the topic ``dev_users``
+      docker-compose exec tools bash -c "confluent iam rolebinding create \
+          --principal User:appSA \
+          --role ResourceOwner \
+          --resource Topic:dev_users \
+          --kafka-cluster-id $KAFKA_CLUSTER_ID"
+
+#. Create the topic ``dev_users`` with embedded |crest|.
+
+   Get the |ak| cluster ID:
+
+   .. literalinclude:: includes/get_kafka_cluster_id_from_host.sh
+
+   Use ``curl`` to create the topic:
+
+   .. code-block:: text
+
+      docker-compose exec restproxy curl -X POST \
+         -H "Content-Type: application/json" \
+         -H "accept: application/json" \
+         -d "{\"topic_name\":\"dev_users\",\"partitions_count\":64,\"replication_factor\":2,\"configs\":[{\"name\":\"cleanup.policy\",\"value\":\"compact\"},{\"name\":\"compression.type\",\"value\":\"gzip\"}]}" \
+         --cert /etc/kafka/secrets/mds.certificate.pem \
+         --key /etc/kafka/secrets/mds.key \
+         --tlsv1.2 \
+         --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+         -u appSA:appSA \
+         "https://kafka1:8091/kafka/v3/clusters/${KAFKA_CLUSTER_ID}/topics" | jq
+
+#. List topics with embedded |crest| to find the newly created ``dev_users``.
+
+   Get the |ak| cluster ID:
+
+   .. literalinclude:: includes/get_kafka_cluster_id_from_host.sh
+
+   Use ``curl`` to list the topics:
+
+   .. code-block:: text
+
+      docker-compose exec restproxy curl -X GET \
+         -H "Content-Type: application/json" \
+         -H "accept: application/json" \
+         --cert /etc/kafka/secrets/mds.certificate.pem \
+         --key /etc/kafka/secrets/mds.key \
+         --tlsv1.2 \
+         --cacert /etc/kafka/secrets/snakeoil-ca-1.crt \
+         -u appSA:appSA \
+         https://kafka1:8091/kafka/v3/clusters/${KAFKA_CLUSTER_ID}/topics | jq '.data[].topic_name'
 
 Failed Broker
 -------------
@@ -908,7 +1147,7 @@ the two Kafka brokers.
 
 #. Stop the Docker container running Kafka broker 2.
 
-   .. sourcecode:: bash
+   .. code-block:: bash
 
           docker-compose stop kafka2
 
@@ -931,12 +1170,12 @@ the two Kafka brokers.
 
 #. Restart the Docker container running Kafka broker 2.
 
-   .. sourcecode:: bash
+   .. code-block:: bash
 
           docker-compose start kafka2
 
-#. After about a minute, observe the Broker summary in Confluent
-   Control Center. The broker count has recovered to 2, and the topic
+#. After about a minute, observe the Broker summary in |c3|.
+   The broker count has recovered to 2, and the topic
    partitions are back to reporting no under replicated partitions.
 
    .. figure:: images/broker_down_steady.png
@@ -953,8 +1192,8 @@ the two Kafka brokers.
 Alerting
 --------
 
-There are many types of Control Center
-`alerts <https://docs.confluent.io/current/control-center/docs/alerts.html>`__
+There are many types of |c3-short|
+:ref:`alerts <controlcenter_userguide_alerts>`
 and many ways to configure them. Use the Alerts management page to
 define triggers and actions, or click on individual resources
 to setup alerts from there.
@@ -963,7 +1202,7 @@ to setup alerts from there.
    :alt: image
 
 
-#. This demo already has pre-configured triggers and actions. View the
+#. This example already has pre-configured triggers and actions. View the
    Alerts ``Triggers`` screen, and click ``Edit`` against each trigger
    to see configuration details.
 
@@ -993,7 +1232,7 @@ to setup alerts from there.
    connector.
 
 #. In the Connect view, pause the Elasticsearch sink connector in Settings by
-   pressing the pause icon in the top right. This will stop consumption
+   pressing the pause icon in the top right. This stops consumption
    for the related consumer group.
 
    .. figure:: images/pause_connector.png
@@ -1050,29 +1289,29 @@ Here are some examples of monitoring stacks that integrate with |cp|:
       :alt: image
       :width: 500px
 
+#. Next step: for a practical guide to optimizing your |ak| deployment for various service goals including throughput, latency, durability and availability, and useful metrics to monitor for performance and cluster health for on-prem |ak| clusters, see the `Optimizing Your Apache Kafka Deployment <https://www.confluent.io/white-paper/optimizing-your-apache-kafka-deployment/>`__ whitepaper.
 
 ===============
 Troubleshooting
 ===============
 
-Here are some suggestions on how to troubleshoot the demo.
+Here are some suggestions on how to troubleshoot the example.
 
-#. Verify the status of the Docker containers show ``Up`` state, except for the ``kafka-client`` container which is expected to have ``Exit 0`` state. If any containers are not up, verify in the advanced Docker preferences settings that the memory available to Docker is at least 8 GB (default is 2 GB).
+#. Verify the status of the Docker containers show ``Up`` state.
 
-   .. sourcecode:: bash
+   .. code-block:: bash
 
         docker-compose ps
 
    Your output should resemble:
 
-   .. sourcecode:: bash
+   .. code-block:: text
 
                  Name                          Command                  State                                           Ports                                     
       ------------------------------------------------------------------------------------------------------------------------------------------------------------
       connect                       bash -c sleep 10 && cp /us ...   Up             0.0.0.0:8083->8083/tcp, 9092/tcp
       control-center                /etc/confluent/docker/run        Up (healthy)   0.0.0.0:9021->9021/tcp, 0.0.0.0:9022->9022/tcp
       elasticsearch                 /bin/bash bin/es-docker          Up             0.0.0.0:9200->9200/tcp, 0.0.0.0:9300->9300/tcp
-      kafka-client                  bash -c -a echo Waiting fo ...   Exit 0
       kafka1                        bash -c if [ ! -f /etc/kaf ...   Up (healthy)   0.0.0.0:10091->10091/tcp, 0.0.0.0:11091->11091/tcp, 0.0.0.0:12091->12091/tcp,
                                                                                     0.0.0.0:8091->8091/tcp, 0.0.0.0:9091->9091/tcp, 9092/tcp
       kafka2                        bash -c if [ ! -f /etc/kaf ...   Up (healthy)   0.0.0.0:10092->10092/tcp, 0.0.0.0:11092->11092/tcp, 0.0.0.0:12092->12092/tcp,
@@ -1087,6 +1326,13 @@ Here are some suggestions on how to troubleshoot the demo.
       tools                         /bin/bash                        Up
       zookeeper                     /etc/confluent/docker/run        Up (healthy)   0.0.0.0:2181->2181/tcp, 2888/tcp, 3888/tcp
 
+#. If any containers are not in ``Up`` state, verify in the advanced Docker preferences settings that the memory available to Docker is at least 8 GB (default is 2 GB).
+
+#. For those Docker containers that are not in ``Up`` state, view the container's logs with the command ``docker-compose logs [container]`` and look for error messages and exceptions.
+
+   .. sourcecode:: bash
+
+        docker-compose logs
 
 #. To view sample messages for each topic, including
    ``wikipedia.parsed``:
@@ -1097,7 +1343,7 @@ Here are some suggestions on how to troubleshoot the demo.
 
 #. If a command that communicates with |zk| appears to be failing with the error ``org.apache.zookeeper.KeeperException$NoAuthException``,
    change the container you are running the command from to be either ``kafka1`` or ``kafka2``.  This is because |zk| is configured for
-   `SASL/DIGEST-MD5 <https://docs.confluent.io/current/kafka/authentication_sasl_plain.html#zookeeper>`__, and
+   :ref:`SASL/DIGEST-MD5 <sasl_plain_zk>`, and
    any commands that communicate with |zk| need properties set for |zk| authentication.
 
 #. Run any of the :devx-cp-demo:`validation scripts|scripts/validate/` to check that things are working.
@@ -1106,7 +1352,18 @@ Here are some suggestions on how to troubleshoot the demo.
 
           cd scripts/validate/
 
+#. If you are running ``cp-demo`` for a long time and issuing Confluent CLI commands on the ``tools`` container that return:
 
+   .. sourcecode:: bash
+
+          Your token has expired. You are now logged out.
+          Error: You must log in to run that command.
+
+   Then run the following command, which refreshes the token by logging back in to MDS:
+
+   .. sourcecode:: bash
+
+          ./scripts/helper/refresh_mds_login.sh 
       
 ========
 Teardown
@@ -1121,7 +1378,7 @@ Teardown
 
          ./scripts/app/stop_consumer_app_group_graceful.sh
 
-#. Stop the Docker demo, destroy all components and clear all Docker
+#. Stop the Docker environment, destroy all components and clear all Docker
    volumes.
 
    .. sourcecode:: bash
